@@ -122,10 +122,43 @@
       </div>
       <button class="btn-save" onclick="saveSettings()"><i class="fa-solid fa-floppy-disk"></i> Salvar Configurações</button>
       <div class="settings-section" style="margin-top:16px"><h3><i class="fa-solid fa-database"></i> Dados Locais</h3>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <button class="btn-primary" onclick="exportJSON()" style="padding:9px 16px;font-size:11px"><i class="fa-solid fa-download"></i> Exportar JSON</button>
-          <button style="padding:9px 16px;background:var(--red-bg);color:var(--red);border-radius:var(--r-sm);font-size:11px;font-weight:700;border:1px solid rgba(231,76,60,.2);transition:var(--t)" onclick="clearLocalData()"><i class="fa-solid fa-trash"></i> Limpar Dados Locais</button>
+          <div class="settings-section" style="margin-top:16px">
+      <h3><i class="fa-solid fa-database"></i> Dados</h3>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn-primary" onclick="exportJSON()" style="padding:9px 16px;font-size:11px"><i class="fa-solid fa-download"></i> Exportar JSON</button>
+        <button style="padding:9px 16px;background:var(--red-bg);color:var(--red);border-radius:var(--r-sm);font-size:11px;font-weight:700;border:1px solid rgba(231,76,60,.2);transition:var(--t)" onclick="clearLocalData()"><i class="fa-solid fa-trash"></i> Limpar Dados Locais</button>
+      </div>
+    </div>
+
+    <div class="settings-section" style="margin-top:16px;border:1px solid rgba(231,76,60,.15);background:rgba(231,76,60,.03)">
+      <h3><i class="fa-solid fa-skull-crossbones" style="color:var(--red)"></i> Zona de Perigo</h3>
+      <p style="font-size:11px;color:var(--text-faint);margin-bottom:14px;line-height:1.6">
+        <i class="fa-solid fa-triangle-exclamation" style="color:var(--yellow)"></i>
+        Esta ação apaga <strong>TODOS</strong> os pedidos (nuvem + local), reseta o contador de pedidos, remove itens desativados e limpa avisos. <strong>Não tem como desfazer.</strong>
+      </p>
+      <div id="resetStep1">
+        <button style="width:100%;padding:13px;background:var(--red);color:#fff;border-radius:var(--r-sm);font-size:13px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:8px;transition:var(--t);cursor:pointer;border:none;font-family:inherit" onclick="showResetConfirm()">
+          <i class="fa-solid fa-radiation"></i> RESETAR SISTEMA COMPLETO
+        </button>
+      </div>
+      <div id="resetStep2" style="display:none">
+        <div style="background:var(--red-bg);border:1px solid rgba(231,76,60,.2);border-radius:var(--r-md);padding:16px;margin-bottom:12px">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+            <div style="width:40px;height:40px;background:var(--red);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0"><i class="fa-solid fa-lock"></i></div>
+            <div>
+              <div style="font-size:13px;font-weight:800;color:var(--red)">Confirme com senha</div>
+              <div style="font-size:10px;color:var(--text-faint)">Digite a senha de admin para continuar</div>
+            </div>
+          </div>
+          <input type="password" id="resetPassword" placeholder="Senha de admin" class="inp-field" style="width:100%;margin-bottom:12px;text-align:center;font-size:16px;letter-spacing:3px" onkeydown="if(event.key==='Enter')executeFullReset()">
+          <div id="resetError" style="font-size:11px;color:var(--red);font-weight:700;min-height:16px;text-align:center;margin-bottom:8px"></div>
+          <div style="display:flex;gap:8px">
+            <button style="flex:1;padding:11px;background:var(--bg-input);border:1px solid var(--border);border-radius:var(--r-sm);font-size:12px;font-weight:700;color:var(--text-dim);transition:var(--t);cursor:pointer;border:none;font-family:inherit" onclick="cancelReset()"><i class="fa-solid fa-arrow-left"></i> Cancelar</button>
+            <button style="flex:2;padding:11px;background:var(--red);color:#fff;border-radius:var(--r-sm);font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:6px;transition:var(--t);cursor:pointer;border:none;font-family:inherit" onclick="executeFullReset()"><i class="fa-solid fa-bomb"></i> EXECUTAR RESET</button>
+          </div>
         </div>
+      </div>
+    </div>
       </div>
     </div>
 

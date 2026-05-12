@@ -11,7 +11,7 @@ var printerConnected = false;
 var soundEnabled = cfg.sound;
 var selectedOrderId = null;
 var currentFilter = 'all';
-var orderCounter = orders.length > 0 ? Math.max(...orders.map(function(o){return o.num})) : 0;
+var orderCounter = orders.length > 0 ? Math.max.apply(null, orders.map(function(o){return o.num;})) : 0;
 
 // JSONBin config — mesmo BIN do admin-cloud.js
 var BIN_ID = "69ff6740adc21f119a778293";
@@ -35,6 +35,12 @@ function fetchCloudOrders(){
   .then(function(r){ return r.json(); })
   .then(function(json){
     var data = json.record;
+
+    // Sincroniza o counter do bin mesmo sem pedidos
+    if(data && typeof data.orderCounter === "number" && data.orderCounter > orderCounter){
+      orderCounter = data.orderCounter;
+    }
+
     if(!data || !data.orders || !data.orders.length){
       if(dot) dot.style.background = 'var(--green)';
       if(label) label.textContent = 'Conectado';
@@ -49,9 +55,12 @@ function fetchCloudOrders(){
       var exists = orders.some(function(o){ return o._cloudId === co._id; });
       if(exists) return;
 
-      orderCounter++;
+      // USA O NUM QUE VEIO DA NUVEM — não gera um novo
+      var num = co.num || 0;
+      if(num > orderCounter) orderCounter = num;
+
       var order = {
-        num: orderCounter,
+        num: num,
         customer: co.customer || 'Cliente',
         phone: co.phone || '',
         type: co.type || 'Delivery',
@@ -317,7 +326,7 @@ function updateStatus(num,status){
 }
 
 // ════════════════════════════════════════════
-// NOVO PEDIDO MANUAL
+// NOVO PEDIDO MANUAL — busca counter da nuvem
 // ════════════════════════════════════════════
 function openAddOrder(){ document.getElementById('addOrderModal').style.display='flex'; }
 function closeAddOrder(){ document.getElementById('addOrderModal').style.display='none'; }
@@ -342,20 +351,55 @@ function addOrderManual(){
   else if(type==='Mesa') address = 'Mesa ' + (document.getElementById('new-table').value.trim()||'?');
   else address = 'Retirada no local';
 
-  orderCounter++;
-  var order = {
-    num: orderCounter, customer: customer,
-    phone: document.getElementById('new-phone').value.trim(),
-    type: type, address: address, items: items,
-    payment: document.getElementById('new-payment').value,
-    total: total, obs: document.getElementById('new-obs').value.trim(),
-    status: 'new', ts: Date.now(), source: 'manual'
-  };
-  orders.unshift(order); saveOrders();
-  closeAddOrder(); showPage('orders'); selectOrder(orderCounter);
-  toast('ok','Pedido criado!','#'+orderCounter+' — '+customer);
-  notifyNewOrder(order);
-  if(cfg.autoPrint && printerConnected) printOrder(orderCounter);
+  // Busca o counter da nuvem para manter sequência
+  fetch(API_URL+"/latest",{headers:{"X-Master-Key":MASTER_KEY}})
+  .then(function(r){return r.json();})
+  .then(function(json){
+    var data = json.record;
+    if(typeof data.orderCounter === "number" && data.orderCounter > orderCounter){
+      orderCounter = data.orderCounter;
+    }
+    orderCounter++;
+
+    // Atualiza counter na nuvem
+    data.orderCounter = orderCounter;
+    fetch(API_URL,{
+      method:"PUT",
+      headers:{"Content-Type":"application/json","X-Master-Key":MASTER_KEY},
+      body:JSON.stringify(data)
+    }).catch(function(){});
+
+    var order = {
+      num: orderCounter, customer: customer,
+      phone: document.getElementById('new-phone').value.trim(),
+      type: type, address: address, items: items,
+      payment: document.getElementById('new-payment').value,
+      total: total, obs: document.getElementById('new-obs').value.trim(),
+      status: 'new', ts: Date.now(), source: 'manual'
+    };
+
+    orders.unshift(order); saveOrders();
+    closeAddOrder(); showPage('orders'); selectOrder(orderCounter);
+    toast('ok','Pedido #'+orderCounter+' criado!',customer+' — '+fmt(total));
+    notifyNewOrder(order);
+    if(cfg.autoPrint && printerConnected) printOrder(orderCounter);
+  })
+  .catch(function(){
+    // Fallback sem nuvem
+    orderCounter++;
+    var order = {
+      num: orderCounter, customer: customer,
+      phone: document.getElementById('new-phone').value.trim(),
+      type: type, address: address, items: items,
+      payment: document.getElementById('new-payment').value,
+      total: total, obs: document.getElementById('new-obs').value.trim(),
+      status: 'new', ts: Date.now(), source: 'manual'
+    };
+    orders.unshift(order); saveOrders();
+    closeAddOrder(); showPage('orders'); selectOrder(orderCounter);
+    toast('ok','Pedido #'+orderCounter+' criado!',customer+' — '+fmt(total));
+    notifyNewOrder(order);
+  });
 }
 
 // ════════════════════════════════════════════
@@ -578,12 +622,117 @@ function clearLocalData(){
   orders=[];orderCounter=0;saveOrders();
   refreshCurrentPage();toast('ok','Dados limpos','Pedidos locais removidos');
 }
+// ════════════════════════════════════════════
+// RESET COMPLETO DO SISTEMA
+// ════════════════════════════════════════════
+var ADMIN_PASS_RESET = "1204";
 
+function showResetConfirm(){
+  document.getElementById('resetStep1').style.display = 'none';
+  document.getElementById('resetStep2').style.display = 'block';
+  document.getElementById('resetError').textContent = '';
+  setTimeout(function(){
+    var inp = document.getElementById('resetPassword');
+    if(inp) inp.focus();
+  }, 100);
+}
+
+function cancelReset(){
+  document.getElementById('resetStep1').style.display = 'block';
+  document.getElementById('resetStep2').style.display = 'none';
+  document.getElementById('resetPassword').value = '';
+  document.getElementById('resetError').textContent = '';
+}
+
+function executeFullReset(){
+  var pass = document.getElementById('resetPassword').value;
+  var errEl = document.getElementById('resetError');
+
+  if(pass !== ADMIN_PASS_RESET){
+    errEl.textContent = 'Senha incorreta!';
+    document.getElementById('resetPassword').value = '';
+    document.getElementById('resetPassword').focus();
+    return;
+  }
+
+  errEl.textContent = '';
+  document.getElementById('resetPassword').value = '';
+  document.getElementById('resetPassword').placeholder = 'Processando...';
+  document.getElementById('resetPassword').disabled = true;
+
+  var resetData = {
+    aberto: true,
+    aviso: "",
+    taxa: 0,
+    tempo: "30-45 min",
+    desativados: [],
+    desativadosOpts: [],
+    orders: [],
+    orderCounter: 1
+  };
+
+  fetch(API_URL, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Master-Key": MASTER_KEY
+    },
+    body: JSON.stringify(resetData)
+  })
+  .then(function(res){
+    if(!res.ok) throw new Error("HTTP " + res.status);
+    return res.json();
+  })
+  .then(function(){
+    // Limpa dados locais
+    orders = [];
+    orderCounter = 0;
+    lastCloudOrdersIds = [];
+    localStorage.removeItem('imperioAdmOrders');
+    localStorage.removeItem('imperioAdmCfg');
+
+    // Volta a UI
+    cancelReset();
+    document.getElementById('resetPassword').placeholder = '••••••';
+    document.getElementById('resetPassword').disabled = false;
+
+    // Recarrega tudo
+    loadSettings();
+    renderDashboard();
+    refreshCurrentPage();
+
+    toast('ok', 'Sistema resetado!', 'Nuvem + local limpos — Counter voltou para 1');
+
+    // Feedback visual forte
+    var body = document.querySelector('.main');
+    body.style.transition = 'opacity 0.3s';
+    body.style.opacity = '0';
+    setTimeout(function(){
+      body.style.opacity = '1';
+    }, 300);
+  })
+  .catch(function(e){
+    errEl.textContent = 'Erro na nuvem: ' + (e.message || 'Verifique a conexão');
+    document.getElementById('resetPassword').placeholder = '••••••';
+    document.getElementById('resetPassword').disabled = false;
+  });
+}
 // ════════════════════════════════════════════
 // INIT
 // ════════════════════════════════════════════
 renderDashboard();
 
-// Buscar pedidos da nuvem imediatamente e a cada 6 segundos
+// Sincroniza o counter da nuvem ao abrir o painel
+fetch(API_URL+"/latest",{headers:{"X-Master-Key":MASTER_KEY}})
+.then(function(r){return r.json();})
+.then(function(json){
+  var data = json.record;
+  if(typeof data.orderCounter === "number" && data.orderCounter > orderCounter){
+    orderCounter = data.orderCounter;
+  }
+})
+.catch(function(){});
+
+// Busca pedidos da nuvem imediatamente e a cada 6 segundos
 fetchCloudOrders();
 setInterval(fetchCloudOrders, 6000);
