@@ -3,7 +3,7 @@
 // CONFIGURAÇÃO
 // ════════════════════════════════════════════
 var cfg = JSON.parse(localStorage.getItem('imperioAdmCfg') || '{}');
-cfg = Object.assign({storeName:'Império Lanches',storeAddr:'NATAL, RN',phone:'5584994994919',autoPrint:false,paper58:true,sound:true}, cfg);
+cfg = Object.assign({storeName:'Império Lanches',storeAddr:'BREJINHO, RN',phone:'5584994994919',autoPrint:false,paper58:true,sound:true}, cfg);
 
 var orders = JSON.parse(localStorage.getItem('imperioAdmOrders') || '[]');
 var btDevice = null, btChar = null;
