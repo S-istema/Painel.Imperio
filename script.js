@@ -3,7 +3,7 @@
 // ════════════════════════════════════════════
 var cfg = JSON.parse(localStorage.getItem('imperioAdmCfg') || '{}');
 cfg = Object.assign({
-  storeName:'IMPERIO LANCHES', 
+  storeName:'EMANUEL', 
   storeAddr:'Rua Herminio Macedo de Carvalho', 
   cnpj:'59.527.486/0001-63', 
   phone:'84 99442-8496',
@@ -285,10 +285,10 @@ function buildCouponOwner(o){
   var enc=new TextEncoder(), lines=[], w=cfg.paper58?32:42;
   function divider(ch){return (ch||'-').repeat(w);} function rowLR(l,r){var sp=Math.max(1,w-l.length-r.length);return l+' '.repeat(sp)+r;} function push(){for(var i=0;i<arguments.length;i++)lines.push(arguments[i]);}
   
-  push(ESC_INIT, ESC_CENTER, ESC_LG, ESC_BOLD, enc.encode('IMPERIO LANCHES\n'));
-  push(ESC_SM, ESC_NORMAL, enc.encode('CNPJ: 59.527.486/0001-63\n'));
+  push(ESC_INIT, ESC_CENTER, ESC_LG, ESC_BOLD, enc.encode('EMANUEL\n'));
+  push(ESC_SM, ESC_NORMAL, enc.encode('CPF: 111.111.111.11\n'));
   push(enc.encode('TELEFONE: 84 99442-8496\n'));
-  push(enc.encode('Rua Herminio Macedo de Carvalho\n'));
+  push(enc.encode('Rua Bom Dia\n'));
   push(ESC_LEFT, enc.encode(divider('=')+'\n'));
   push(ESC_CENTER, ESC_BOLD, enc.encode('PEDIDO #'+o.num+'\n'));
   push(ESC_NORMAL, ESC_LEFT, enc.encode(divider('=')+'\n'));
@@ -313,8 +313,8 @@ function buildCouponClient(o){
   var enc=new TextEncoder(), lines=[], w=cfg.paper58?32:42;
   function divider(ch){return (ch||'-').repeat(w);} function rowLR(l,r){var sp=Math.max(1,w-l.length-r.length);return l+' '.repeat(sp)+r;} function push(){for(var i=0;i<arguments.length;i++)lines.push(arguments[i]);}
   
-  push(ESC_INIT, ESC_CENTER, ESC_LG, ESC_BOLD, enc.encode('IMPERIO LANCHES\n'));
-  push(ESC_SM, ESC_NORMAL, enc.encode('CNPJ: 59.527.486/0001-63\n'));
+  push(ESC_INIT, ESC_CENTER, ESC_LG, ESC_BOLD, enc.encode('EMANUEL\n'));
+  push(ESC_SM, ESC_NORMAL, enc.encode('CPF: 111.111.111.11\n'));
   push(enc.encode('TELEFONE: 84 99442-8496\n'));
   push(enc.encode('Rua Herminio Macedo de Carvalho\n'));
   push(ESC_LEFT, enc.encode(divider('=')+'\n'));
