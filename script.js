@@ -3,13 +3,15 @@
 // ════════════════════════════════════════════
 var cfg = JSON.parse(localStorage.getItem('imperioAdmCfg') || '{}');
 cfg = Object.assign({
-  storeName:'EMANUEL', 
+  storeName:'IMPERIO LANCHES', 
   storeAddr:'Rua Herminio Macedo de Carvalho', 
   cnpj:'59.527.486/0001-63', 
   phone:'84 99442-8496',
   autoPrint:false,
   paper58:true,
-  sound:true
+  sound:true,
+  pixKey:'84994994919',
+  pixCity:'Natal'
 }, cfg);
 
 var orders = JSON.parse(localStorage.getItem('imperioAdmOrders') || '[]');
@@ -20,8 +22,8 @@ var selectedOrderId = null;
 var currentFilter = 'all';
 var orderCounter = orders.length > 0 ? Math.max.apply(null, orders.map(function(o){return o.num;})) : 0;
 
-var BIN_ID = "69ff6740adc21f119a778293";
-var MASTER_KEY = "$2a$10$zfLo4xQ0.IvfaaQaJbTDle3OU9eW24NU.iN7JbK9Ph9OpF0MiuRRu";
+var BIN_ID = "6a22556df5f4af5e29bbf70d";
+var MASTER_KEY = "$2a$10$oxPjSemP6.ZbivpbS4Ycp.GEfwwE5bV3K7ddo522WVY38ic838lr.";
 var API_URL = "https://api.jsonbin.io/v3/b/"+BIN_ID;
 var lastCloudOrdersIds = [];
 
@@ -146,7 +148,7 @@ function refreshCurrentPage(){
 
 function fmt(v){ return 'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function formatNum(v){ return Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
-function statusLabel(s){ return {new:'🔔 Novo',preparing:'🔥 Preparando',ready:'✅ Pronto',delivered:'📦 Entregue',cancelled:'❌ Cancelado'}[s]||s; }
+function statusLabel(s){ return {new:'🔔 Novo',preparing:'🔥 Preparando',ready:'✅ Pronto',delivered:'📦 Entrega',cancelled:'❌ Cancelado'}[s]||s; }
 function relTime(ts){ var d=Date.now()-ts; if(d<60000) return 'agora'; if(d<3600000) return Math.round(d/60000)+'min atrás'; if(d<86400000) return Math.round(d/3600000)+'h atrás'; return new Date(ts).toLocaleDateString('pt-BR'); }
 var toastTimer;
 function toast(type,title,sub){
@@ -190,13 +192,23 @@ function renderOrders(){
   }).join('');
   if(selectedOrderId) renderDetail(selectedOrderId);
 }
-function selectOrder(num){ selectedOrderId = num; renderOrders(); renderDetail(num); }
+function selectOrder(num){ 
+  if(selectedOrderId === num){
+    selectedOrderId = null; 
+    renderOrders(); 
+    document.getElementById('orderDetail').innerHTML = '<div class="detail-empty"><i class="fa-solid fa-hand-pointer"></i><p style="font-size:12px">Selecione um pedido</p></div>';
+    return; 
+  }
+  selectedOrderId = num; 
+  renderOrders(); 
+  renderDetail(num); 
+}
 
 function renderDetail(num){
   var o = orders.find(function(x){return x.num===num;});
   if(!o){ document.getElementById('orderDetail').innerHTML='<div class="detail-empty"><i class="fa-solid fa-hand-pointer"></i><p style="font-size:12px">Selecione um pedido</p></div>'; return; }
   var el = document.getElementById('orderDetail');
-  var nextActions = { new: '<button class="btn-status preparing-btn" onclick="updateStatus('+o.num+',\'preparing\')"><i class="fa-solid fa-fire-burner"></i> Iniciar Preparo</button>', preparing: '<button class="btn-status ready-btn" onclick="updateStatus('+o.num+',\'ready\')"><i class="fa-solid fa-bell"></i> Marcar Pronto</button>', ready: '<button class="btn-status delivered-btn" onclick="updateStatus('+o.num+',\'delivered\')"><i class="fa-solid fa-check-double"></i> Confirmar Entrega</button>', delivered: '', cancelled: '' };
+  var nextActions = { new: '<button class="btn-status preparing-btn" onclick="updateStatus('+o.num+',\'preparing\')"><i class="fa-solid fa-fire-burner"></i> Iniciar Preparo</button>', preparing: '<button class="btn-status ready-btn" onclick="updateStatus('+o.num+',\'ready\')"><i class="fa-solid fa-bell"></i> Marcar Pronto</button>', ready: '<button class="btn-status delivered-btn" onclick="updateStatus('+o.num+',\'delivered\')"><i class="fa-solid fa-check-double"></i> Saiu para Entrega</button>', delivered: '', cancelled: '' };
   var srcLabel = o.source==='site'?'<div class="detail-info-row"><i class="fa-solid fa-globe" style="color:var(--blue)"></i><span style="color:var(--blue)">Pedido recebido pelo site</span></div>':'';
   el.innerHTML = '<div class="detail-header"><div><div class="detail-num">Pedido #'+o.num+'</div><div class="detail-time">'+new Date(o.ts).toLocaleString('pt-BR')+'</div></div><span class="order-status-badge badge-'+o.status+'">'+statusLabel(o.status)+'</span></div>'+srcLabel+'<div class="detail-section"><div class="detail-section-title"><i class="fa-solid fa-user"></i> Cliente</div><div class="detail-info-row"><i class="fa-solid fa-user"></i>'+o.customer+'</div><div class="detail-info-row"><i class="fa-solid fa-phone"></i>'+(o.phone||'—')+'</div><div class="detail-info-row"><i class="fa-solid fa-'+(o.type==='Delivery'?'motorcycle':o.type==='Mesa'?'utensils':'store')+'"></i>'+o.type+(o.address?' · '+o.address:'')+'</div>'+(o.obs?'<div class="detail-info-row"><i class="fa-solid fa-note-sticky"></i><span style="color:var(--yellow)">'+o.obs+'</span></div>':'')+'</div><div class="detail-section"><div class="detail-section-title"><i class="fa-solid fa-list"></i> Itens</div>'+o.items.map(function(i){ var mods = (i.mods&&i.mods.length) ? '<div class="detail-item-mods">'+i.mods.join(', ')+'</div>' : ''; return '<div class="detail-item"><div class="detail-item-left"><div class="detail-item-name">'+i.qty+'x '+i.name+'</div>'+mods+'</div><div class="detail-item-price">'+fmt(i.price)+'</div></div>'; }).join('')+'</div><div class="detail-total-box"><div class="detail-total-row grand"><span>Total</span><span>'+fmt(o.total)+'</span></div></div><div class="detail-info-row" style="margin-bottom:12px"><i class="fa-solid fa-credit-card" style="color:var(--green)"></i><span style="color:var(--green);font-weight:700">'+o.payment+'</span></div><div class="detail-actions">'+(nextActions[o.status]||'')+'<button class="btn-print" onclick="printOrder('+o.num+')"><i class="fa-solid fa-print"></i> Imprimir 2 Vias</button>'+(o.status!=='delivered'&&o.status!=='cancelled'?'<button class="btn-cancel-order" onclick="updateStatus('+o.num+',\'cancelled\')"><i class="fa-solid fa-xmark"></i> Cancelar Pedido</button>':'')+'</div>';
 }
@@ -237,12 +249,16 @@ function loadSettings(){
   document.getElementById('cfg-autoPrint').checked=cfg.autoPrint;
   document.getElementById('cfg-paper58').checked=cfg.paper58;
   document.getElementById('cfg-sound').checked=cfg.sound;
+  if(document.getElementById('cfg-pixKey')) document.getElementById('cfg-pixKey').value=cfg.pixKey||'';
+  if(document.getElementById('cfg-pixCity')) document.getElementById('cfg-pixCity').value=cfg.pixCity||'Natal';
 }
 function saveSettings(){
   cfg.storeName=document.getElementById('cfg-storeName').value; cfg.storeAddr=document.getElementById('cfg-storeAddr').value;
   if(document.getElementById('cfg-cnpj')) cfg.cnpj=document.getElementById('cfg-cnpj').value;
   cfg.phone=document.getElementById('cfg-phone').value; cfg.autoPrint=document.getElementById('cfg-autoPrint').checked;
   cfg.paper58=document.getElementById('cfg-paper58').checked; cfg.sound=document.getElementById('cfg-sound').checked;
+  if(document.getElementById('cfg-pixKey')) cfg.pixKey=document.getElementById('cfg-pixKey').value.trim();
+  if(document.getElementById('cfg-pixCity')) cfg.pixCity=document.getElementById('cfg-pixCity').value.trim()||'Natal';
   saveCfg(); toast('ok','Configurações salvas!','Todas as preferências foram atualizadas');
 }
 
@@ -269,9 +285,10 @@ async function sendToPrinter(data){
 }
 
 // ════════════════════════════════════════════
-// GERAÇÃO DO CUPOM (OBS ABAIXO DOS ITENS)
+// GERAÇÃO DO CUPOM
 // ════════════════════════════════════════════
 function cleanForPrinter(str){ if(!str) return ''; str = str.normalize("NFD").replace(/[\u0300-\u036f]/g, ""); str = str.replace(/[^\x20-\x7E]/g, ''); return str; }
+function cleanForPix(str){ if(!str) return ''; str = str.normalize("NFD").replace(/[\u0300-\u036f]/g, ""); return str; }
 function concatBytes() { var totalLen = 0; for (var i = 0; i < arguments.length; i++) totalLen += arguments[i].length; var result = new Uint8Array(totalLen); var offset = 0; for (var i = 0; i < arguments.length; i++) { result.set(arguments[i], offset); offset += arguments[i].length; } return result; }
 
 var ESC_INIT=new Uint8Array([0x1B,0x40]),ESC_BOLD=new Uint8Array([0x1B,0x45,0x01]),ESC_NORMAL=new Uint8Array([0x1B,0x45,0x00]);
@@ -281,14 +298,108 @@ var ESC_CUT=new Uint8Array([0x1D,0x56,0x00]),LF=new Uint8Array([0x0A]);
 
 function fmtDate(ts){ var d = new Date(ts); return String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear()+' '+String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')+'h'; }
 
+// ════════════════════════════════════════════
+// QR CODE ESC/POS (Modelo 2)
+// ════════════════════════════════════════════
+function buildQR(text) {
+  var enc = new TextEncoder();
+  var dataBytes = enc.encode(text);
+  var dataLen = dataBytes.length;
+  var paramLen = dataLen + 3;
+  var pL = paramLen & 0xFF;
+  var pH = (paramLen >> 8) & 0xFF;
+  var QR_MODEL = new Uint8Array([0x1D, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x30]);
+  var QR_SIZE = new Uint8Array([0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x06]);
+  var QR_ERR = new Uint8Array([0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x31]);
+  var storeHeader = new Uint8Array([0x1D, 0x28, 0x6B, pL, pH, 0x31, 0x50, 0x30]);
+  var storeData = concatBytes(storeHeader, dataBytes);
+  var QR_PRINT = new Uint8Array([0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30]);
+  return concatBytes(QR_MODEL, QR_SIZE, QR_ERR, storeData, QR_PRINT);
+}
+
+// ════════════════════════════════════════════
+// PAYLOAD PIX (BRCode / EMV padrão Banco Central)
+// ════════════════════════════════════════════
+function pixTLV(id, value) {
+  var len = value.length.toString().padStart(2, '0');
+  return id + len + value;
+}
+
+function crc16CCITT(str) {
+  var crc = 0xFFFF;
+  for (var i = 0; i < str.length; i++) {
+    crc ^= str.charCodeAt(i) << 8;
+    for (var j = 0; j < 8; j++) {
+      if (crc & 0x8000) {
+        crc = (crc << 1) ^ 0x1021;
+      } else {
+        crc = crc << 1;
+      }
+      crc &= 0xFFFF;
+    }
+  }
+  return crc.toString(16).toUpperCase().padStart(4, '0');
+}
+
+function buildPixPayload(order) {
+  var pixKey = cfg.pixKey || '';
+  var valor = Number(order.total || 0).toFixed(2);
+  var nome = cleanForPix(cfg.storeName || 'IMPERIO LANCHES').substring(0, 25);
+  var cidade = cleanForPix(cfg.pixCity || 'Natal').substring(0, 15);
+
+  // ID 00 - Payload Format Indicator
+  var id00 = pixTLV('00', '01');
+
+  // ID 26 - Merchant Account Information (PIX)
+  var id26_00 = pixTLV('00', 'br.gov.bcb.pix');
+  var id26_01 = pixTLV('01', pixKey);
+  var id26_02 = pixTLV('02', 'Pedido #' + order.num);
+  var id26 = pixTLV('26', id26_00 + id26_01 + id26_02);
+
+  // ID 52 - Merchant Category Code
+  var id52 = pixTLV('52', '0000');
+
+  // ID 53 - Transaction Currency (986 = BRL)
+  var id53 = pixTLV('53', '986');
+
+  // ID 54 - Transaction Amount
+  var id54 = pixTLV('54', valor);
+
+  // ID 58 - Country Code
+  var id58 = pixTLV('58', 'BR');
+
+  // ID 59 - Merchant Name
+  var id59 = pixTLV('59', nome);
+
+  // ID 60 - Merchant City
+  var id60 = pixTLV('60', cidade);
+
+  // ID 62 - Additional Data Field Template
+  var id62_05 = pixTLV('05', '***' + order.num);
+  var id62 = pixTLV('62', id62_05);
+
+  // Montar payload sem CRC
+  var payload = id00 + id26 + id52 + id53 + id54 + id58 + id59 + id60 + id62;
+
+  // ID 63 - CRC16 (placeholder + cálculo)
+  payload += '6304';
+  var crc = crc16CCITT(payload);
+  payload += crc;
+
+  return payload;
+}
+
+// ════════════════════════════════════════════
+// CUPOM VIA COZINHA (sem QR Code)
+// ════════════════════════════════════════════
 function buildCouponOwner(o){
   var enc=new TextEncoder(), lines=[], w=cfg.paper58?32:42;
   function divider(ch){return (ch||'-').repeat(w);} function rowLR(l,r){var sp=Math.max(1,w-l.length-r.length);return l+' '.repeat(sp)+r;} function push(){for(var i=0;i<arguments.length;i++)lines.push(arguments[i]);}
   
-  push(ESC_INIT, ESC_CENTER, ESC_LG, ESC_BOLD, enc.encode('EMANUEL\n'));
-  push(ESC_SM, ESC_NORMAL, enc.encode('CPF: 111.111.111.11\n'));
+  push(ESC_INIT, ESC_CENTER, ESC_LG, ESC_BOLD, enc.encode('IMPERIO LANCHES\n'));
+  push(ESC_SM, ESC_NORMAL, enc.encode('CNPJ: 59.527.486/0001-63\n'));
   push(enc.encode('TELEFONE: 84 99442-8496\n'));
-  push(enc.encode('Rua Bom Dia\n'));
+  push(enc.encode('Rua Herminio Macedo de Carvalho\n'));
   push(ESC_LEFT, enc.encode(divider('=')+'\n'));
   push(ESC_CENTER, ESC_BOLD, enc.encode('PEDIDO #'+o.num+'\n'));
   push(ESC_NORMAL, ESC_LEFT, enc.encode(divider('=')+'\n'));
@@ -298,10 +409,7 @@ function buildCouponOwner(o){
   var items = o.items || []; items.forEach(function(i){ var name=(i.qty+'x '+cleanForPrinter(i.name || 'Item')).slice(0,w-8); var val='R$'+Number(i.price || 0).toFixed(2).replace('.', ','); push(enc.encode(rowLR(name, val)+'\n')); var mods = i.mods || []; if(mods.length) mods.forEach(function(mod){ push(enc.encode('  + '+cleanForPrinter(mod)+'\n')); }); });
   
   push(enc.encode(divider('-')+'\n'));
-  
-  // OBS AQUI: ABAIXO DOS ITENS E ACIMA DO TOTAL
   if(o.obs) push(ESC_BOLD, enc.encode('OBS: '), ESC_NORMAL, enc.encode(cleanForPrinter(o.obs)+'\n'));
-  
   var totalFmt = 'R$'+Number(o.total || 0).toFixed(2).replace('.', ',');
   push(ESC_BOLD, enc.encode('VALOR TOTAL: '+totalFmt+'\n'), ESC_NORMAL);
   push(ESC_BOLD, enc.encode('FORMA DE PAGAMENTO: '+cleanForPrinter(o.payment).toUpperCase()+'\n'), ESC_NORMAL);
@@ -309,12 +417,15 @@ function buildCouponOwner(o){
   return concatBytes.apply(null, lines);
 }
 
+// ════════════════════════════════════════════
+// CUPOM VIA CLIENTE (QR Code PIX se pagamento=PIX)
+// ════════════════════════════════════════════
 function buildCouponClient(o){
   var enc=new TextEncoder(), lines=[], w=cfg.paper58?32:42;
   function divider(ch){return (ch||'-').repeat(w);} function rowLR(l,r){var sp=Math.max(1,w-l.length-r.length);return l+' '.repeat(sp)+r;} function push(){for(var i=0;i<arguments.length;i++)lines.push(arguments[i]);}
   
-  push(ESC_INIT, ESC_CENTER, ESC_LG, ESC_BOLD, enc.encode('EMANUEL\n'));
-  push(ESC_SM, ESC_NORMAL, enc.encode('CPF: 111.111.111.11\n'));
+  push(ESC_INIT, ESC_CENTER, ESC_LG, ESC_BOLD, enc.encode('IMPERIO LANCHES\n'));
+  push(ESC_SM, ESC_NORMAL, enc.encode('CNPJ: 59.527.486/0001-63\n'));
   push(enc.encode('TELEFONE: 84 99442-8496\n'));
   push(enc.encode('Rua Herminio Macedo de Carvalho\n'));
   push(ESC_LEFT, enc.encode(divider('=')+'\n'));
@@ -326,14 +437,23 @@ function buildCouponClient(o){
   var items = o.items || []; items.forEach(function(i){ var name=(i.qty+'x '+cleanForPrinter(i.name || 'Item')).slice(0,w-8); var val='R$'+Number(i.price || 0).toFixed(2).replace('.', ','); push(enc.encode(rowLR(name, val)+'\n')); });
   
   push(enc.encode(divider('-')+'\n'));
-  
-  // OBS AQUI: ABAIXO DOS ITENS E ACIMA DO TOTAL
   if(o.obs) push(ESC_BOLD, enc.encode('OBS: '), ESC_NORMAL, enc.encode(cleanForPrinter(o.obs)+'\n'));
-  
   var totalFmt = 'R$'+Number(o.total || 0).toFixed(2).replace('.', ',');
   push(ESC_BOLD, enc.encode('VALOR TOTAL: '+totalFmt+'\n'), ESC_NORMAL);
   push(ESC_BOLD, enc.encode('FORMA DE PAGAMENTO: '+cleanForPrinter(o.payment).toUpperCase()+'\n'), ESC_NORMAL);
-  push(LF, enc.encode(fmtDate(o.ts)+'\n')); push(LF,LF,ESC_CUT);
+
+  // ── QR CODE: somente PIX com chave configurada ──
+  var isPix = (o.payment || '').toUpperCase().indexOf('PIX') !== -1;
+  if (isPix && cfg.pixKey) {
+    push(LF, ESC_CENTER, ESC_BOLD, enc.encode('PAGUE VIA PIX\n'), ESC_NORMAL);
+    push(enc.encode('Escaneie o QR Code abaixo\n'));
+    push(LF);
+    var pixPayload = buildPixPayload(o);
+    push(buildQR(pixPayload));
+    push(LF);
+  }
+
+  push(ESC_LEFT, enc.encode(fmtDate(o.ts)+'\n')); push(LF,LF,ESC_CUT);
   return concatBytes.apply(null, lines);
 }
 
@@ -352,9 +472,23 @@ async function printOrder(num){
 async function printTest(){
   if(!printerConnected){toast('err','Impressora não conectada','Conecte a impressora Bluetooth primeiro');return;}
   var enc=new TextEncoder();
+  // Via 1: Cozinha
   var cupom1 = concatBytes(ESC_INIT,ESC_CENTER,ESC_BOLD,ESC_LG,enc.encode('VIA 1 - COZINHA\n'),ESC_SM,ESC_NORMAL,enc.encode('Teste OK\n'),ESC_CUT);
-  var cupom2 = concatBytes(ESC_INIT,ESC_CENTER,ESC_BOLD,ESC_LG,enc.encode('VIA 2 - CLIENTE\n'),ESC_SM,ESC_NORMAL,enc.encode('Teste OK\n'),ESC_CUT);
+  // Via 2: Cliente com QR Code PIX de teste
+  var testOrder = {num: 999, total: 1.00, customer: 'TESTE', payment: 'PIX'};
+  var cupom2 = concatBytes(
+    ESC_INIT, ESC_CENTER, ESC_BOLD, ESC_LG, enc.encode('VIA 2 - CLIENTE\n'), ESC_SM, ESC_NORMAL, enc.encode('Teste QR Code PIX\n'), LF,
+    enc.encode('R$ 1,00 (teste)\n'), LF
+  );
+  if (cfg.pixKey) {
+    cupom2 = concatBytes(cupom2, buildQR(buildPixPayload(testOrder)), LF);
+  } else {
+    cupom2 = concatBytes(cupom2, enc.encode('[SEM CHAVE PIX CONFIGURADA]\n'), LF);
+  }
+  cupom2 = concatBytes(cupom2, ESC_CUT);
+
   await sendToPrinter(cupom1); await new Promise(function(r){setTimeout(r, 1500);}); await sendToPrinter(cupom2);
+  toast('ok','Teste impresso!','Verifique as 2 vias');
 }
 
 // ════════════════════════════════════════════
